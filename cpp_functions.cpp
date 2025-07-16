@@ -31,7 +31,8 @@ at::Tensor backward_weight(
       groups,
       benchmark,
       deterministic,
-      allow_fp32);
+      allow_fp32
+    );
 }
 at::Tensor backward_input(
     c10::ArrayRef<long int> input_size,
@@ -55,7 +56,8 @@ at::Tensor backward_input(
       groups,
       benchmark,
       deterministic,
-      allow_fp32);
+      allow_fp32
+    );
 }
 
 // From pytorch/torch/csrc/Module.cpp
@@ -82,7 +84,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("backward_input", &backward_input, "Conv backward_input cudnn");
   m.def("to_dlpack_with_device_id", [](const at::Tensor& data, int64_t device_id) {
       DLManagedTensor* dlMTensor = at::toDLPack(data);
-      dlMTensor->dl_tensor.ctx.device_id = device_id;
+      dlMTensor->dl_tensor.device.device_id = device_id;
       auto capsule = py::capsule(dlMTensor, "dltensor", DLPack_Capsule_Destructor);
       return capsule;
   }, "Specify device_id in dlpack, for cupy to copy to right GPU");

@@ -15,7 +15,7 @@ import torch.autograd
 import torch.backends
 import torch.nn.functional
 
-from torch._six import container_abcs
+import collections.abc as container_abcs
 from torch.nn.modules.conv import _ConvNd
 from torch.nn.modules.utils import _pair
 from torch.utils.cpp_extension import load
@@ -40,7 +40,13 @@ else:
 # Load and compile cpp code to call cudnn conv2d backward function
 dirname = os.path.dirname(__file__)
 filename = os.path.join(dirname, "cpp_functions.cpp")
-cpp_functions = load(name="cpp_functions", sources=[filename], verbose=False)
+# cpp_functions = load(name="cpp_functions", sources=[filename], verbose=False)
+cpp_functions = load(
+    name="cpp_functions",
+    sources=[filename],
+    extra_cuda_cflags=["--generate-code=arch=compute_86,code=sm_86"],
+    verbose=True,
+)
 
 # inspired by torch/nn/modules/utils.py
 def _ntuple(n):
@@ -127,16 +133,16 @@ class StreamingConv2dF(torch.autograd.Function):
             # TODO: use this!?
             allow_tf32 = getattr(torch.backends.cudnn, "allow_tf32", False)
             grad_in = cpp_functions.backward_input(
-                inpt.shape, 
+                list(inpt.shape), 
                 grad_output, 
                 weight.to(inpt.dtype), 
-                padding, 
-                stride, 
-                dilation, 
+                list(padding), 
+                list(stride), 
+                list(dilation), 
                 groups, 
                 torch.backends.cudnn.benchmark, 
                 torch.backends.cudnn.deterministic,
-                allow_tf32
+                True  # allow_tf32
             )
         else:
             grad_in = None
@@ -222,13 +228,16 @@ class StreamingConv2dF(torch.autograd.Function):
             # Calculate the kernel gradients with the new unseen gradient values
             relevant_grad = relevant_grad.contiguous()
 
-            grad_weight = cpp_functions.backward(weight.shape,
+            grad_weight = cpp_functions.backward(list(weight.shape),
                                                  relevant_grad.to(weight.dtype),
                                                  relevant_input.to(weight.dtype),
-                                                 (0, 0),  # padding
-                                                 stride[1:3], dilation, groups,
+                                                 [0, 0],  # padding
+                                                 list(stride[1:3]), 
+                                                 list(dilation), 
+                                                 groups,
                                                  torch.backends.cudnn.benchmark,  # benchmark
-                                                 torch.backends.cudnn.deterministic)  # deterministic
+                                                 torch.backends.cudnn.deterministic, # deterministic
+                                                 True)  # allow_tf32
 
             if bias is not None:
                 grad_bias = relevant_grad[0].sum((1, 2))

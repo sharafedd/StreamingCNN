@@ -13,7 +13,9 @@ at::Tensor backward_weight(
     c10::ArrayRef<int64_t> dilation,
     int64_t groups,
     bool benchmark,
-    bool deterministic) {
+    bool deterministic,
+    bool allow_fp32
+  ) {
 
   return at::cudnn_convolution_backward_weight(
       weight_size,
@@ -24,7 +26,9 @@ at::Tensor backward_weight(
       dilation,
       groups,
       benchmark,
-      deterministic);
+      deterministic,
+      allow_fp32
+    );
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
